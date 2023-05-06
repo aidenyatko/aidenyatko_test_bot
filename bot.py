@@ -46,7 +46,8 @@ async def process_help_command(message: Message):
                          f'а вам нужно его угадать\nУ вас есть {ATTEMPTS} '
                          f'попыток\n\nДоступные команды:\n/help - правила '
                          f'игры и список команд\n/cancel - выйти из игры\n'
-                         f'/stat - посмотреть статистику\n\nДавай сыграем?')
+                         f'/stat - посмотреть статистику\n\nДавай сыграем?'
+                         f'Чтобы начать игру напиши мне "Давай", "Да", "Игра", "Играть", "Хочу играть"')
 
 
 # Этот хэндлер будет срабатывать на команду "/stat"
@@ -74,7 +75,7 @@ async def process_cancel_command(message: Message):
 async def process_positive_answer(message: Message):
     if not user['in_game']:
         await message.answer('Ура!\n\nЯ загадал число от 1 до 100, '
-                             'попробуй угадать!')
+                             f'попробуй угадать! У тебя {ATTEMPTS} попыток')
         user['in_game'] = True
         user['secret_number'] = get_random_number()
         user['attempts'] = ATTEMPTS
@@ -106,11 +107,11 @@ async def process_numbers_answer(message: Message):
             user['total_games'] += 1
             user['wins'] += 1
         elif int(message.text) > user['secret_number']:
-            await message.answer('Мое число меньше')
             user['attempts'] -= 1
+            await message.answer(f"Мое число меньше, у тебя осталось {user['attempts']} попыток")
         elif int(message.text) < user['secret_number']:
-            await message.answer('Мое число больше')
             user['attempts'] -= 1
+            await message.answer(f"Мое число больше, у тебя осталось {user['attempts']} попыток")
 
         if user['attempts'] == 0:
             await message.answer(f'К сожалению, у вас больше не осталось '
