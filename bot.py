@@ -1,61 +1,46 @@
-import asyncio
-import logging
-
-import betterlogging as bl
+# Импортируем все для бота
 from aiogram import Bot, Dispatcher
-from aiogram.fsm.storage.memory import MemoryStorage
-from aiogram.fsm.storage.redis import RedisStorage, DefaultKeyBuilder
+from aiogram.filters import CommandStart, Text
+from aiogram.types import (KeyboardButton, Message, ReplyKeyboardMarkup, ReplyKeyboardRemove)
 
-from tgbot.config import load_config
-from tgbot.handlers.admin import admin_router
-from tgbot.handlers.echo import echo_router
-from tgbot.handlers.user import user_router
-from tgbot.middlewares.config import ConfigMiddleware
-from tgbot.services import broadcaster
+# Импортируем все для работы с окружением
+from environs import Env
 
-logger = logging.getLogger(__name__)
-log_level = logging.INFO
-bl.basic_colorized_config(level=log_level)
+# Достаем секреты
+env = Env()
+env.read_env('.env')
+API_TOKEN: str = env.str("BOT_TOKEN")
+
+# Создаём объекты бота и диспетчера
+bot: Bot = Bot(token=API_TOKEN)
+dp: Dispatcher = Dispatcher()
+
+# Создаём объекты кнопок
+button_1: KeyboardButton = KeyboardButton(text='Собак 🦮')
+button_2: KeyboardButton = KeyboardButton(text='Огурцов 🥒')
+
+# Создаём объекты клавиатуры, добавляя в него кнопки
+keyboard: ReplyKeyboardMarkup = ReplyKeyboardMarkup(keyboard=[[button_1, button_2]], resize_keyboard=True)
 
 
-async def on_startup(bot: Bot, admin_ids: list[int]):
-    await broadcaster.broadcast(bot, admin_ids, "Бот був запущений")
+# Этот хэндлер будет срабатывать на команду "/start" и отправлять в чат клавиатуру
+@dp.message(CommandStart())
+async def process_start_command(message: Message):
+    await message.answer(text='Чего кошки боятся больше?', reply_markup=keyboard)
 
 
-def register_global_middlewares(dp: Dispatcher, config):
-    dp.message.outer_middleware(ConfigMiddleware(config))
-    dp.callback_query.outer_middleware(ConfigMiddleware(config))
+# Этот хэндлер будет срабатывать на ответ "Собак" и удалять клавиатуру
+@dp.message(Text(text="Собак 🦮"))
+async def process_dog_answer(message: Message):
+    await message.answer(text='Да, несомненно, кошки боятся собак. Но вы видели как они боятся огурцов?',
+                         reply_markup=ReplyKeyboardRemove())
 
 
-async def main():
-    logging.basicConfig(
-        level=logging.INFO,
-        format=u'%(filename)s:%(lineno)d #%(levelname)-8s [%(asctime)s] - %(name)s - %(message)s',
-    )
-    logger.info("Starting bot")
-    config = load_config(".env")
-    if config.tg_bot.use_redis:
-        storage = RedisStorage.from_url(config.redis.dsn(), key_builder=DefaultKeyBuilder(with_bot_id=True, with_destiny=True))
-    else:
-        storage = MemoryStorage()
-    bot = Bot(token=config.tg_bot.token, parse_mode='HTML')
-    dp = Dispatcher(storage=storage)
-
-    for router in [
-        admin_router,
-        user_router,
-        echo_router
-    ]:
-        dp.include_router(router)
-
-    register_global_middlewares(dp, config)
-
-    await on_startup(bot, config.tg_bot.admin_ids)
-    await dp.start_polling(bot)
+# Этот хэндлер будет срабатывать на ответ "Огурцов" и удалять клавиатуру
+@dp.message(Text(text="Огурцов 🥒"))
+async def process_cucumber_answer(message: Message):
+    await message.answer(text='Да, иногда кажется, что огурцов кошки боятся больше', reply_markup=ReplyKeyboardRemove())
 
 
 if __name__ == '__main__':
-    try:
-        asyncio.run(main())
-    except (KeyboardInterrupt, SystemExit):
-        logger.error("Бот був вимкнений!")
+    dp.run_polling(bot)
